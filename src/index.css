@@ -8,6 +8,15 @@
   body {
     background-color: #080808;
     color: #f5f5f5;
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Prevent browser auto-zoom when focusing inputs on mobile */
+  @media (max-width: 768px) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
   }
 
   code, pre, kbd {

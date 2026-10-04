@@ -26,10 +26,23 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
     }
   }
 
+  // Lock iframe viewport to prevent auto-zoom
+  let meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'viewport';
+    document.head.appendChild(meta);
+  }
+  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+
   // Inject styles for inspector outline in bright neon yellow (#EFFF00)
   const styleEl = document.createElement('style');
   styleEl.id = 'bio-studio-editor-styles';
   styleEl.textContent = \`
+    html, body {
+      touch-action: manipulation !important;
+      -webkit-text-size-adjust: 100% !important;
+    }
     .bio-editor-hovered {
       outline: 1.5px dashed #EFFF00 !important;
       outline-offset: -1px !important;
@@ -184,9 +197,6 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
       selectedBioId = id;
       el.classList.add('bio-editor-selected');
       sendElementDetails(el);
-      if (el !== document.body) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
     }
   }
 
