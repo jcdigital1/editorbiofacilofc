@@ -1,0 +1,6 @@
+{
+  "name": "Bio Studio Editor",
+  "description": "Editor visual completo e profissional de bio sites em HTML com importação, edição em tempo real, suporte a WhatsApp e exportação de código e ZIP.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  body {
+    background-color: #080808;
+    color: #f5f5f5;
+  }
+
+  code, pre, kbd {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Neon glow utilities */
+.neon-btn {
+  background-color: #EFFF00;
+  color: #080808;
+  box-shadow: 0 0 20px rgba(239, 255, 0, 0.35);
+  transition: all 0.2s ease-in-out;
+}
+
+.neon-btn:hover {
+  background-color: #f7ff33;
+  box-shadow: 0 0 25px rgba(239, 255, 0, 0.55);
+  transform: translateY(-1px);
+}
+
+.neon-border {
+  border-color: #EFFF00;
+  box-shadow: 0 0 12px rgba(239, 255, 0, 0.25);
+}
+
+/* Custom sleek scrollbar for editor */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080808;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #262626;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #404040;
+}
+
