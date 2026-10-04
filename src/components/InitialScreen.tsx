@@ -1,21 +1,45 @@
-import React, { useState } from 'react';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { ArrowRight, RotateCcw, Clipboard, Trash2 } from 'lucide-react';
 
 interface InitialScreenProps {
   initialHtml: string;
   onOpenEditor: (html: string) => void;
+  onClearHtml?: () => void;
 }
 
 export const InitialScreen: React.FC<InitialScreenProps> = ({
   initialHtml,
   onOpenEditor,
+  onClearHtml,
 }) => {
   const [htmlInput, setHtmlInput] = useState(initialHtml || '');
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!htmlInput.trim()) return;
     onOpenEditor(htmlInput.trim());
+  };
+
+  const handleClearCode = () => {
+    setHtmlInput('');
+    if (onClearHtml) {
+      onClearHtml();
+    }
+    textareaRef.current?.focus();
+  };
+
+  const handlePasteClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        setHtmlInput(text.trim());
+        textareaRef.current?.focus();
+      }
+    } catch {
+      // If clipboard access is blocked, focus textarea for manual Ctrl+V
+      textareaRef.current?.focus();
+    }
   };
 
   return (
@@ -31,38 +55,86 @@ export const InitialScreen: React.FC<InitialScreenProps> = ({
           </span>
         </div>
 
-        <span className="text-xs text-neutral-500 font-medium">
-          Editor visual de bio sites
-        </span>
+        {/* Top actions if code exists */}
+        {htmlInput.trim().length > 0 && (
+          <button
+            type="button"
+            onClick={handleClearCode}
+            className="px-3 py-1.5 rounded-lg bg-[#141414] hover:bg-neutral-800 text-neutral-300 hover:text-[#EFFF00] border border-neutral-800 transition-colors text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+            title="Limpar o campo e colar um novo código"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-[#EFFF00]" />
+            <span>Novo código</span>
+          </button>
+        )}
       </header>
 
       {/* Main Focus Area */}
       <main className="w-full max-w-4xl mx-auto flex-1 flex flex-col justify-center my-4">
         <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
           <div className="relative group">
+            {/* Top right quick actions inside textarea container */}
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              {htmlInput.trim().length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleClearCode}
+                  className="px-3 py-1.5 bg-[#1a1a1a]/90 hover:bg-[#252525] border border-neutral-700/70 text-neutral-200 hover:text-[#EFFF00] rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                  title="Apagar código atual e colar novo"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-neutral-400 group-hover:text-[#EFFF00]" />
+                  <span>Novo código</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handlePasteClipboard}
+                  className="px-3 py-1.5 bg-[#1a1a1a]/90 hover:bg-[#252525] border border-neutral-700/70 text-neutral-200 hover:text-[#EFFF00] rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                  title="Colar da área de transferência"
+                >
+                  <Clipboard className="w-3.5 h-3.5 text-[#EFFF00]" />
+                  <span>Colar</span>
+                </button>
+              )}
+            </div>
+
             <textarea
+              ref={textareaRef}
               rows={14}
               value={htmlInput}
               onChange={(e) => setHtmlInput(e.target.value)}
               placeholder="Cole seu código HTML aqui"
               autoFocus
-              className="w-full bg-[#111111] border border-neutral-800 rounded-2xl p-5 sm:p-6 font-mono text-sm text-neutral-200 placeholder:text-neutral-500 placeholder:font-sans placeholder:text-base focus:outline-none focus:border-[#EFFF00] focus:shadow-[0_0_20px_rgba(239,255,0,0.2)] transition-all resize-none"
+              className="w-full bg-[#111111] border border-neutral-800 rounded-2xl p-5 sm:p-6 pr-32 font-mono text-sm text-neutral-200 placeholder:text-neutral-500 placeholder:font-sans placeholder:text-base focus:outline-none focus:border-[#EFFF00] focus:shadow-[0_0_20px_rgba(239,255,0,0.2)] transition-all resize-none"
             />
           </div>
 
-          <div className="flex items-center justify-between gap-4 pt-1">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1">
             <p className="text-xs text-neutral-500">
               Cole o código completo de qualquer bio site em HTML.
             </p>
 
-            <button
-              type="submit"
-              disabled={!htmlInput.trim()}
-              className="neon-btn px-7 py-3.5 rounded-xl font-bold text-sm flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer disabled:shadow-none"
-            >
-              <span>Abrir editor</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+              {htmlInput.trim().length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearCode}
+                  className="px-4 py-3 rounded-xl border border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 transition-colors text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Novo código</span>
+                </button>
+              )}
+
+              <button
+                type="submit"
+                disabled={!htmlInput.trim()}
+                className="neon-btn px-7 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer disabled:shadow-none"
+              >
+                <span>Abrir editor</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </form>
       </main>

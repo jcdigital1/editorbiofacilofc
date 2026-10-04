@@ -136,6 +136,24 @@ export default function App() {
     setSelectedElement(null);
   };
 
+  // Start fresh with a new code
+  const handleNewCode = () => {
+    if (isDirty) {
+      if (!confirm('Deseja colar um novo código? As alterações não salvas do site atual serão descartadas.')) {
+        return;
+      }
+    }
+    setHtmlContent('');
+    try {
+      localStorage.removeItem(STORAGE_KEY_HTML);
+    } catch {}
+    setHistoryPast([]);
+    setHistoryFuture([]);
+    setIsDirty(false);
+    setSelectedElement(null);
+    setView('input');
+  };
+
   // Mode switcher (Edit vs Test)
   const handleChangeEditorMode = (mode: EditorMode) => {
     setEditorMode(mode);
@@ -328,6 +346,12 @@ export default function App() {
       <InitialScreen
         initialHtml={htmlContent}
         onOpenEditor={handleOpenEditor}
+        onClearHtml={() => {
+          setHtmlContent('');
+          try {
+            localStorage.removeItem(STORAGE_KEY_HTML);
+          } catch {}
+        }}
       />
     );
   }
@@ -338,6 +362,7 @@ export default function App() {
       {/* Minimal Top Bar */}
       <MinimalHeader
         onBack={handleBackToInput}
+        onNewCode={handleNewCode}
         canUndo={historyPast.length > 0}
         canRedo={historyFuture.length > 0}
         onUndo={handleUndo}

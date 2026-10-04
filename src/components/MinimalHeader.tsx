@@ -12,12 +12,13 @@ import {
   MoreVertical,
   Archive,
   Code,
-  Check,
+  FilePlus,
 } from 'lucide-react';
 import { DeviceMode, EditorMode } from '../types';
 
 interface MinimalHeaderProps {
   onBack: () => void;
+  onNewCode: () => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -34,6 +35,7 @@ interface MinimalHeaderProps {
 
 export const MinimalHeader: React.FC<MinimalHeaderProps> = ({
   onBack,
+  onNewCode,
   canUndo,
   canRedo,
   onUndo,
@@ -51,15 +53,24 @@ export const MinimalHeader: React.FC<MinimalHeaderProps> = ({
 
   return (
     <header className="h-13 bg-[#080808] border-b border-[#1f1f1f] px-3 sm:px-5 flex items-center justify-between z-30 select-none text-xs">
-      {/* Left: Voltar & Undo/Redo */}
+      {/* Left: Voltar, Novo código & Undo/Redo */}
       <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={onBack}
           className="px-2.5 py-1.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-900 transition-colors flex items-center gap-1.5 font-medium"
-          title="Voltar para a tela inicial de HTML"
+          title="Voltar para a tela inicial de HTML mantendo as alterações"
         >
           <ArrowLeft className="w-4 h-4 text-[#EFFF00]" />
           <span className="hidden sm:inline">Voltar</span>
+        </button>
+
+        <button
+          onClick={onNewCode}
+          className="px-2 py-1.5 rounded-lg text-neutral-400 hover:text-[#EFFF00] hover:bg-neutral-900 transition-colors flex items-center gap-1.5 font-medium"
+          title="Colar outro código HTML do zero"
+        >
+          <FilePlus className="w-3.5 h-3.5 text-[#EFFF00]" />
+          <span className="hidden md:inline">Novo código</span>
         </button>
 
         <div className="h-4 w-[1px] bg-neutral-800"></div>
@@ -180,6 +191,17 @@ export const MinimalHeader: React.FC<MinimalHeaderProps> = ({
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-[#141414] border border-neutral-800 rounded-xl shadow-2xl p-1 z-50 text-xs">
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onNewCode();
+                }}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-800 text-neutral-200 transition-colors flex items-center gap-2"
+              >
+                <FilePlus className="w-3.5 h-3.5 text-[#EFFF00]" />
+                <span>Novo código HTML</span>
+              </button>
+
               <button
                 onClick={() => {
                   onSelectSiteBackground();
