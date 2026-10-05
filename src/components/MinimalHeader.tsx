@@ -13,6 +13,8 @@ import {
   Archive,
   Code,
   FilePlus,
+  ShieldCheck,
+  LogOut,
 } from 'lucide-react';
 import { DeviceMode, EditorMode } from '../types';
 
@@ -31,6 +33,10 @@ interface MinimalHeaderProps {
   onDownloadHtml: () => void;
   onDownloadZip: () => void;
   onOpenCode: () => void;
+  userEmail?: string;
+  isAdmin?: boolean;
+  onOpenAdmin?: () => void;
+  onLogout?: () => void;
 }
 
 export const MinimalHeader: React.FC<MinimalHeaderProps> = ({
@@ -48,6 +54,10 @@ export const MinimalHeader: React.FC<MinimalHeaderProps> = ({
   onDownloadHtml,
   onDownloadZip,
   onOpenCode,
+  userEmail,
+  isAdmin,
+  onOpenAdmin,
+  onLogout,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -234,6 +244,39 @@ export const MinimalHeader: React.FC<MinimalHeaderProps> = ({
                 <Code className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Ver código HTML</span>
               </button>
+
+              {isAdmin && onOpenAdmin && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenAdmin();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-800 text-[#EFFF00] transition-colors flex items-center gap-2 font-medium"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Painel de Administração</span>
+                </button>
+              )}
+
+              {userEmail && (
+                <div className="px-3 py-1.5 border-t border-neutral-800/80 my-1 text-[10px] text-neutral-500 truncate">
+                  Conectado como:<br />
+                  <strong className="text-neutral-300 font-mono">{userEmail}</strong>
+                </div>
+              )}
+
+              {onLogout && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onLogout();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-rose-950/40 text-rose-400 transition-colors flex items-center gap-2 font-medium border-t border-neutral-800/80"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sair da conta</span>
+                </button>
+              )}
             </div>
           )}
         </div>

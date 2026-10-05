@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == 'jeannmkt2@gmail.com') ||
+        (request.auth.token.email == 'jeanncarllostk00@gmail.com') ||
+        (request.auth.token.email == 'jccaricaturasmkt@gmail.com') ||
+        (request.auth.token.email == 'jeannleticia00@gmail.com')
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Collection: users
+    match /users/{userId} {
+      // Single doc read: Owner or Admin
+      allow get: if isSignedIn() && isValidId(userId) && (isOwner(userId) || isAdmin());
+
+      // List queries: ONLY Admin can list users
+      allow list: if isAdmin();
+
+      // Registration (create):
+      // - User creates their own document matching their Auth UID and Email
+      // - Standard users MUST have status == 'pending' and role == 'user'
+      // - Admin account is bootstrapped with status == 'approved' and role == 'admin'
+      allow create: if isSignedIn() &&
+        isValidId(userId) &&
+        isOwner(userId) &&
+        incoming().uid == request.auth.uid &&
+        incoming().email == request.auth.token.email &&
+        incoming().status is string &&
+        incoming().status in ['pending', 'approved', 'blocked'] &&
+        (
+          // If the authenticated user is the designated admin
+          (request.auth.token.email == 'jeannmkt2@gmail.com') ||
+          (request.auth.token.email == 'jeanncarllostk00@gmail.com') ||
+          (request.auth.token.email == 'jccaricaturasmkt@gmail.com') ||
+          (request.auth.token.email == 'jeannleticia00@gmail.com') ||
+          // Otherwise, regular users are strictly forced to 'pending' status and 'user' role
+          (incoming().status == 'pending' && (!('role' in incoming()) || incoming().role == 'user'))
+        );
+
+      // Status modifications (Approve / Block / Reactivate):
+      // STRICTLY restricted to Admin! Normal users can NEVER alter their status or role.
+      allow update: if isSignedIn() &&
+        isValidId(userId) &&
+        isAdmin() &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().status in ['pending', 'approved', 'blocked'];
+
+      // Deletion: Admin only
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Collection: admins
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && isValidId(adminId);
+      allow write: if isAdmin() && isValidId(adminId);
+    }
+  }
+}

@@ -1,16 +1,24 @@
 import React, { useState, useRef } from 'react';
-import { ArrowRight, RotateCcw, Clipboard, Trash2 } from 'lucide-react';
+import { ArrowRight, RotateCcw, Clipboard, Trash2, LogOut, ShieldCheck } from 'lucide-react';
 
 interface InitialScreenProps {
   initialHtml: string;
   onOpenEditor: (html: string) => void;
   onClearHtml?: () => void;
+  userEmail?: string;
+  isAdmin?: boolean;
+  onOpenAdmin?: () => void;
+  onLogout?: () => void;
 }
 
 export const InitialScreen: React.FC<InitialScreenProps> = ({
   initialHtml,
   onOpenEditor,
   onClearHtml,
+  userEmail,
+  isAdmin,
+  onOpenAdmin,
+  onLogout,
 }) => {
   const [htmlInput, setHtmlInput] = useState(initialHtml || '');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -50,23 +58,56 @@ export const InitialScreen: React.FC<InitialScreenProps> = ({
           <div className="w-8 h-8 rounded-lg bg-[#EFFF00] text-black font-extrabold flex items-center justify-center text-sm shadow-[0_0_15px_rgba(239,255,0,0.4)]">
             BS
           </div>
-          <span className="font-bold text-base tracking-tight text-white">
-            Bio Studio
-          </span>
+          <div className="flex flex-col">
+            <span className="font-bold text-base tracking-tight text-white">
+              Bio Studio
+            </span>
+            {userEmail && (
+              <span className="text-[10px] text-neutral-500 truncate max-w-[160px] sm:max-w-xs">
+                {userEmail}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Top actions if code exists */}
-        {htmlInput.trim().length > 0 && (
-          <button
-            type="button"
-            onClick={handleClearCode}
-            className="px-3 py-1.5 rounded-lg bg-[#141414] hover:bg-neutral-800 text-neutral-300 hover:text-[#EFFF00] border border-neutral-800 transition-colors text-xs font-medium flex items-center gap-1.5 cursor-pointer"
-            title="Limpar o campo e colar um novo código"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-[#EFFF00]" />
-            <span>Novo código</span>
-          </button>
-        )}
+        {/* Top actions */}
+        <div className="flex items-center gap-2">
+          {isAdmin && onOpenAdmin && (
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              className="px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-[#EFFF00] border border-[#EFFF00]/30 transition-colors text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              title="Acessar painel de aprovação de usuários"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Painel Admin</span>
+            </button>
+          )}
+
+          {htmlInput.trim().length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearCode}
+              className="px-3 py-1.5 rounded-lg bg-[#141414] hover:bg-neutral-800 text-neutral-300 hover:text-[#EFFF00] border border-neutral-800 transition-colors text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+              title="Limpar o campo e colar um novo código"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-[#EFFF00]" />
+              <span className="hidden sm:inline">Novo código</span>
+            </button>
+          )}
+
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="px-2.5 py-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-900 transition-colors text-xs font-medium flex items-center gap-1 cursor-pointer"
+              title="Sair da conta"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sair</span>
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Main Focus Area */}

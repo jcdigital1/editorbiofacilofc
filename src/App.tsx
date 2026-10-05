@@ -4,6 +4,13 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { AuthProvider, useAuth } from './firebase/authContext';
+import { AuthScreen } from './components/Auth/AuthScreen';
+import { PendingScreen } from './components/Auth/PendingScreen';
+import { BlockedScreen } from './components/Auth/BlockedScreen';
+import { AdminDashboard } from './components/Auth/AdminDashboard';
+import { SaveLoginPrompt } from './components/Auth/SaveLoginPrompt';
+
 import { InitialScreen } from './components/InitialScreen';
 import { MinimalHeader } from './components/MinimalHeader';
 import { PreviewCanvas } from './components/PreviewCanvas';
@@ -17,8 +24,13 @@ import { exportSingleHtml, exportZipPackage } from './utils/exporter';
 
 const STORAGE_KEY_HTML = 'bio_studio_current_html_v3';
 
-export default function App() {
-  // Current view: 'input' (initial screen) vs 'editor' (visual preview editor)
+function BioStudioApp() {
+  const { currentUser, userProfile, loading, isAdmin, isApproved, isPending, isBlocked, logout } = useAuth();
+
+  // If user is admin, allow toggling between Admin Dashboard and Editor
+  const [adminView, setAdminView] = useState<'admin' | 'editor'>('admin');
+
+  // Current view inside the editor: 'input' (initial screen) vs 'editor' (visual preview editor)
   const [view, setView] = useState<'input' | 'editor'>('input');
 
   // Main canonical HTML state (starts empty on first load)
@@ -50,7 +62,7 @@ export default function App() {
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  // Persist current work in localStorage
+  // Persist current work in localStorage per session
   useEffect(() => {
     if (htmlContent) {
       try {
@@ -340,25 +352,69 @@ export default function App() {
     }
   };
 
-  // If in Initial Screen View
-  if (view === 'input') {
+  // 1. Loading State (Checking Firebase Authentication)
+  if (loading) {
     return (
-      <InitialScreen
-        initialHtml={htmlContent}
-        onOpenEditor={handleOpenEditor}
-        onClearHtml={() => {
-          setHtmlContent('');
-          try {
-            localStorage.removeItem(STORAGE_KEY_HTML);
-          } catch {}
-        }}
-      />
+      <div className="min-h-screen w-full bg-[#080808] flex flex-col items-center justify-center text-neutral-400 text-xs">
+        <div className="w-10 h-10 rounded-xl bg-[#EFFF00] text-black font-extrabold flex items-center justify-center text-base shadow-[0_0_20px_rgba(239,255,0,0.35)] animate-pulse mb-3">
+          BS
+        </div>
+        <span>Carregando autenticação...</span>
+      </div>
     );
   }
 
-  // Visual Editor View (site occupying virtually the entire screen, no sidebars!)
+  // 2. Not Authenticated -> Show Login & Registration Screen
+  if (!currentUser) {
+    return <AuthScreen />;
+  }
+
+  // 3. User is Blocked -> Show Blocked Notice
+  if (isBlocked) {
+    return <BlockedScreen />;
+  }
+
+  // 4. User is Pending -> Show Pending Notice
+  if (isPending && !isAdmin) {
+    return <PendingScreen />;
+  }
+
+  // 5. Admin Dashboard View
+  if (isAdmin && adminView === 'admin') {
+    return (
+      <>
+        <AdminDashboard onGoToEditor={() => setAdminView('editor')} />
+        <SaveLoginPrompt />
+      </>
+    );
+  }
+
+  // 6. User is Approved (or Admin in editor mode): Render the Original Bio Studio Editor!
+  if (view === 'input') {
+    return (
+      <>
+        <InitialScreen
+          initialHtml={htmlContent}
+          onOpenEditor={handleOpenEditor}
+          onClearHtml={() => {
+            setHtmlContent('');
+            try {
+              localStorage.removeItem(STORAGE_KEY_HTML);
+            } catch {}
+          }}
+          userEmail={currentUser.email || undefined}
+          isAdmin={isAdmin}
+          onOpenAdmin={() => setAdminView('admin')}
+          onLogout={logout}
+        />
+        <SaveLoginPrompt />
+      </>
+    );
+  }
+
+  // Visual Editor View (Site occupying virtually the entire screen, with all original tools preserved!)
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#080808] text-neutral-100 antialiased font-sans select-none">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#080808] text-neutral-100 antialiased font-sans select-none relative">
       {/* Minimal Top Bar */}
       <MinimalHeader
         onBack={handleBackToInput}
@@ -375,6 +431,10 @@ export default function App() {
         onDownloadHtml={handleDownloadHtml}
         onDownloadZip={handleDownloadZip}
         onOpenCode={() => setIsCodeModalOpen(true)}
+        userEmail={currentUser.email || undefined}
+        isAdmin={isAdmin}
+        onOpenAdmin={() => setAdminView('admin')}
+        onLogout={logout}
       />
 
       {/* Main Preview Area */}
@@ -417,6 +477,16 @@ export default function App() {
           updateHtmlWithHistory(newCode);
         }}
       />
+
+      <SaveLoginPrompt />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BioStudioApp />
+    </AuthProvider>
   );
 }
