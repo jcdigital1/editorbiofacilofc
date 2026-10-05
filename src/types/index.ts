@@ -127,6 +127,21 @@ export interface SelectedElementProperties {
   isLink: boolean;
   isButton: boolean;
   isImage: boolean;
+  hasBackgroundImage?: boolean;
+  backgroundImageSrc?: string;
+  isCarousel?: boolean;
+  carouselInfo?: {
+    totalSlides: number;
+    currentIndex: number;
+    carouselBioId?: string;
+    slides: Array<{
+      bioId: string;
+      src: string;
+      alt?: string;
+      isBackground?: boolean;
+      active?: boolean;
+    }>;
+  };
   isWhatsApp: boolean;
   whatsAppData?: {
     ddi?: string;

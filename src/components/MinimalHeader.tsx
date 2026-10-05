@@ -15,6 +15,7 @@ import {
   FilePlus,
   ShieldCheck,
   LogOut,
+  Sparkles,
 } from 'lucide-react';
 import { DeviceMode, EditorMode } from '../types';
 
@@ -33,6 +34,7 @@ interface MinimalHeaderProps {
   onDownloadHtml: () => void;
   onDownloadZip: () => void;
   onOpenCode: () => void;
+  onOpenElements?: () => void;
   userEmail?: string;
   isAdmin?: boolean;
   onOpenAdmin?: () => void;
@@ -54,6 +56,7 @@ export const MinimalHeader: React.FC<MinimalHeaderProps> = ({
   onDownloadHtml,
   onDownloadZip,
   onOpenCode,
+  onOpenElements,
   userEmail,
   isAdmin,
   onOpenAdmin,
@@ -149,12 +152,24 @@ export const MinimalHeader: React.FC<MinimalHeaderProps> = ({
         {/* Fundo do site quick button */}
         <button
           onClick={onSelectSiteBackground}
-          className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-900 border border-neutral-800/80 transition-colors font-medium text-xs"
+          className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-900 border border-neutral-800/80 transition-colors font-medium text-xs cursor-pointer"
           title="Alterar a cor de fundo do site"
         >
           <PaintBucket className="w-3.5 h-3.5 text-[#EFFF00]" />
           <span>Fundo do site</span>
         </button>
+
+        {/* Smart Biosite Elements Drawer Button */}
+        {onOpenElements && (
+          <button
+            onClick={onOpenElements}
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141414] hover:bg-neutral-800 text-[#EFFF00] border border-[#EFFF00]/40 hover:border-[#EFFF00] transition-colors font-bold text-xs shadow-sm cursor-pointer"
+            title="Abrir painel inteligente com todos os elementos e fotos do biosite"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Elementos do Biosite</span>
+          </button>
+        )}
       </div>
 
       {/* Right: Testar & Baixar HTML */}
@@ -201,6 +216,19 @@ export const MinimalHeader: React.FC<MinimalHeaderProps> = ({
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-[#141414] border border-neutral-800 rounded-xl shadow-2xl p-1 z-50 text-xs">
+              {onOpenElements && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenElements();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-800 text-[#EFFF00] transition-colors flex items-center gap-2 font-semibold"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Elementos do Biosite</span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   setMenuOpen(false);

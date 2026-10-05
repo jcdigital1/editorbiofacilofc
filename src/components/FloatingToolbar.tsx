@@ -12,6 +12,8 @@ import {
   Trash2,
   Copy,
   ChevronDown,
+  Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import { SelectedElementProperties } from '../types';
 import { buildWhatsAppUrl, parseWhatsAppUrl, validateBrazilianPhone, formatPhoneForDisplay } from '../utils/whatsappHelper';
@@ -26,6 +28,7 @@ interface FloatingToolbarProps {
   onUpdateWhatsAppGlobal: (phoneUrl: string, rawPhone: string, message: string) => void;
   onDeleteElement: (bioId: string) => void;
   onDuplicateElement: (bioId: string) => void;
+  onSelectElement?: (bioId: string) => void;
   iframeRect?: DOMRect | null;
 }
 
@@ -39,6 +42,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   onUpdateWhatsAppGlobal,
   onDeleteElement,
   onDuplicateElement,
+  onSelectElement,
   iframeRect,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -46,10 +50,11 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   // Editable local values
   const [textValue, setTextValue] = useState(element.textNodeContent || element.fullTextContent);
   const [linkValue, setLinkValue] = useState(element.attributes.href || '');
-  const [imageSrc, setImageSrc] = useState(element.attributes.src || '');
+  const [imageSrc, setImageSrc] = useState(element.attributes.src || element.backgroundImageSrc || '');
+  const [imageSaved, setImageSaved] = useState(false);
 
   // Detect type
-  const isImage = element.isImage;
+  const isImage = element.isImage || element.hasBackgroundImage;
   const isBodyOrSection =
     element.tagName === 'body' ||
     element.tagName === 'section' ||
@@ -79,7 +84,8 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   useEffect(() => {
     setTextValue(element.textNodeContent || element.fullTextContent);
     setLinkValue(element.attributes.href || '');
-    setImageSrc(element.attributes.src || '');
+    const currentImg = element.attributes.src || element.backgroundImageSrc || '';
+    setImageSrc(currentImg);
 
     if (element.attributes.href) {
       const parsed = parseWhatsAppUrl(element.attributes.href);
@@ -134,6 +140,24 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
     setTimeout(() => setWaSaved(false), 2000);
   };
 
+  const handleApplyImageSrc = (targetSrc: string) => {
+    const finalUrl = targetSrc.trim();
+    if (!finalUrl) return;
+
+    setImageSrc(finalUrl);
+
+    if (element.hasBackgroundImage || element.tagName !== 'img') {
+      onUpdateStyle(element.bioId, 'backgroundImage', `url("${finalUrl}")`);
+      onUpdateStyle(element.bioId, 'backgroundSize', 'cover');
+      onUpdateStyle(element.bioId, 'backgroundPosition', 'center');
+    } else {
+      onUpdateAttribute(element.bioId, 'src', finalUrl);
+    }
+
+    setImageSaved(true);
+    setTimeout(() => setImageSaved(false), 1500);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -142,8 +166,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
       if (dataUrl) {
-        setImageSrc(dataUrl);
-        onUpdateAttribute(element.bioId, 'src', dataUrl);
+        handleApplyImageSrc(dataUrl);
       }
     };
     reader.readAsDataURL(file);
@@ -292,60 +315,128 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 
         {/* 2. IMAGE OR LOGO CONTROLS */}
         {isImage && (
-          <div className="space-y-3">
-            <div className="w-full h-28 bg-[#080808] rounded-xl border border-neutral-800 flex items-center justify-center p-2 overflow-hidden">
+          <div className="space-y-3.5">
+            {/* Carousel Slide Switcher */}
+            {element.isCarousel && element.carouselInfo && element.carouselInfo.slides.length > 0 && (
+              <div className="p-2.5 bg-[#080808] rounded-xl border border-neutral-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#EFFF00] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Fotos do Carrossel ({element.carouselInfo.slides.length})
+                  </span>
+                  <span className="text-[10px] text-neutral-400">Clique na foto para editar</span>
+                </div>
+
+                <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
+                  {element.carouselInfo.slides.map((slide, idx) => {
+                    const isCurrent = slide.active || slide.bioId === element.bioId;
+                    return (
+                      <button
+                        key={slide.bioId || idx}
+                        type="button"
+                        onClick={() => {
+                          if (onSelectElement && slide.bioId) {
+                            onSelectElement(slide.bioId);
+                          }
+                        }}
+                        className={`relative shrink-0 w-13 h-13 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                          isCurrent
+                            ? 'border-[#EFFF00] ring-2 ring-[#EFFF00]/40 scale-105'
+                            : 'border-neutral-700/60 hover:border-neutral-400 opacity-70 hover:opacity-100'
+                        }`}
+                        title={`Slide ${idx + 1}`}
+                      >
+                        <img src={slide.src} alt="" className="w-full h-full object-cover" />
+                        <span className="absolute bottom-0 right-0 bg-black/85 text-[9px] px-1 font-mono text-white rounded-tl">
+                          {idx + 1}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Current Image Preview */}
+            <div className="relative w-full h-28 bg-[#080808] rounded-xl border border-neutral-800 flex items-center justify-center p-2 overflow-hidden">
               <img
                 src={imageSrc}
                 alt="Prévia"
-                className="max-h-full max-w-full object-contain"
+                className="max-h-full max-w-full object-contain rounded"
               />
+              {imageSaved && (
+                <div className="absolute inset-0 bg-emerald-500/80 backdrop-blur-xs flex items-center justify-center text-white text-xs font-bold gap-1.5 animate-in fade-in">
+                  <Check className="w-4 h-4" />
+                  <span>Foto atualizada!</span>
+                </div>
+              )}
             </div>
 
+            {/* Option A: Upload file from computer / mobile */}
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-300 mb-1.5">
+                Opção 1: Subir outra imagem
+              </label>
+              <label className="w-full py-2 px-3 bg-[#EFFF00]/10 hover:bg-[#EFFF00]/20 border border-[#EFFF00]/40 hover:border-[#EFFF00] text-[#EFFF00] rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2 font-bold text-xs shadow-sm">
+                <Upload className="w-4 h-4" />
+                <span>Escolher foto do dispositivo</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {/* Option B: Enter image hosting link */}
             <div className="space-y-1.5">
               <label className="block text-[11px] font-semibold text-neutral-300">
-                Trocar foto (URL ou Arquivo)
+                Opção 2: Link de hospedagem da imagem
               </label>
-
               <div className="flex items-center gap-1.5">
                 <input
                   type="text"
                   value={imageSrc}
                   onChange={(e) => setImageSrc(e.target.value)}
-                  onBlur={() => onUpdateAttribute(element.bioId, 'src', imageSrc)}
-                  placeholder="https://..."
-                  className="flex-1 bg-[#080808] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs font-mono text-neutral-200 focus:outline-none focus:border-[#EFFF00]"
+                  onKeyDown={(e) => e.key === 'Enter' && handleApplyImageSrc(imageSrc)}
+                  placeholder="https://exemplo.com/sua-foto.jpg"
+                  className="flex-1 bg-[#080808] border border-neutral-800 rounded-xl px-2.5 py-1.5 text-xs font-mono text-neutral-200 focus:outline-none focus:border-[#EFFF00]"
                 />
-
-                <label className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg cursor-pointer transition-colors flex items-center gap-1 shrink-0 font-medium text-[11px]">
-                  <Upload className="w-3.5 h-3.5 text-[#EFFF00]" />
-                  <span>Arquivo</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
+                <button
+                  type="button"
+                  onClick={() => handleApplyImageSrc(imageSrc)}
+                  className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors shrink-0"
+                >
+                  Aplicar
+                </button>
               </div>
             </div>
 
-            {/* Enquadramento */}
-            <div className="space-y-1">
-              <span className="text-[11px] text-neutral-400">Enquadramento:</span>
+            {/* Object Fit Controls */}
+            <div className="space-y-1 pt-1 border-t border-neutral-800/80">
+              <span className="text-[11px] text-neutral-400">Enquadramento da foto:</span>
               <div className="flex gap-1.5">
                 <button
                   type="button"
                   onClick={() => onUpdateStyle(element.bioId, 'objectFit', 'cover')}
-                  className="flex-1 py-1 bg-[#080808] hover:bg-neutral-800 border border-neutral-800 rounded text-center text-[11px]"
+                  className="flex-1 py-1 bg-[#080808] hover:bg-neutral-800 border border-neutral-800 rounded-lg text-center text-[11px] text-neutral-300 hover:text-white"
                 >
                   Preencher
                 </button>
                 <button
                   type="button"
                   onClick={() => onUpdateStyle(element.bioId, 'objectFit', 'contain')}
-                  className="flex-1 py-1 bg-[#080808] hover:bg-neutral-800 border border-neutral-800 rounded text-center text-[11px]"
+                  className="flex-1 py-1 bg-[#080808] hover:bg-neutral-800 border border-neutral-800 rounded-lg text-center text-[11px] text-neutral-300 hover:text-white"
                 >
                   Conter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdateStyle(element.bioId, 'borderRadius', '9999px')}
+                  className="flex-1 py-1 bg-[#080808] hover:bg-neutral-800 border border-neutral-800 rounded-lg text-center text-[11px] text-neutral-300 hover:text-white"
+                >
+                  Redondo
                 </button>
               </div>
             </div>

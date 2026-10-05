@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { DeviceMode, EditorMode } from '../types';
 import { generatePreviewInjectionScript } from '../utils/previewScript';
@@ -23,6 +23,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onIframeRectChange,
 }) => {
   const [hasScriptError, setHasScriptError] = useState(false);
+  const lastIframeHtmlRef = useRef<string>('');
 
   // Inject preview script into html before feeding to iframe
   const preparePreviewHtml = (rawHtml: string): string => {
@@ -66,7 +67,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   };
 
   useEffect(() => {
-    updateIframeContent();
+    // Only re-write iframe when HTML content changes from OUTSIDE the iframe (e.g. undo, redo, template load, code modal)
+    if (htmlContent !== lastIframeHtmlRef.current) {
+      lastIframeHtmlRef.current = htmlContent;
+      updateIframeContent();
+    }
   }, [htmlContent, editorMode]);
 
   // Keep track of iframe rect on window resize
@@ -92,6 +97,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
         }
         onElementSelected(data.payload);
       } else if (data.type === 'BIO_HTML_UPDATED') {
+        lastIframeHtmlRef.current = data.html;
         onHtmlUpdatedFromIframe(data.html);
       }
     };

@@ -16,6 +16,7 @@ import { MinimalHeader } from './components/MinimalHeader';
 import { PreviewCanvas } from './components/PreviewCanvas';
 import { FloatingToolbar } from './components/FloatingToolbar';
 import { CodeEditorModal } from './components/CodeEditorModal';
+import { BiositeElementsDrawer } from './components/BiositeElementsDrawer';
 
 import { DeviceMode, EditorMode, SelectedElementProperties } from './types';
 import { analyzeHtml } from './utils/htmlAnalyzer';
@@ -59,6 +60,7 @@ function BioStudioApp() {
 
   // Discreet Code Editor Modal
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
+  const [isElementsDrawerOpen, setIsElementsDrawerOpen] = useState(false);
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -431,6 +433,7 @@ function BioStudioApp() {
         onDownloadHtml={handleDownloadHtml}
         onDownloadZip={handleDownloadZip}
         onOpenCode={() => setIsCodeModalOpen(true)}
+        onOpenElements={() => setIsElementsDrawerOpen(true)}
         userEmail={currentUser.email || undefined}
         isAdmin={isAdmin}
         onOpenAdmin={() => setAdminView('admin')}
@@ -463,6 +466,9 @@ function BioStudioApp() {
             onUpdateWhatsAppGlobal={handleUpdateWhatsAppGlobal}
             onDeleteElement={handleDeleteElement}
             onDuplicateElement={handleDuplicateElement}
+            onSelectElement={(bioId) => {
+              postToIframe({ type: 'BIO_SCROLL_TO_ELEMENT', bioId });
+            }}
             iframeRect={iframeRect}
           />
         )}
@@ -475,6 +481,23 @@ function BioStudioApp() {
         htmlContent={htmlContent}
         onApplyCode={(newCode) => {
           updateHtmlWithHistory(newCode);
+        }}
+      />
+
+      {/* Intelligent Biosite Elements Extractor & Editor Drawer */}
+      <BiositeElementsDrawer
+        isOpen={isElementsDrawerOpen}
+        onClose={() => setIsElementsDrawerOpen(false)}
+        htmlContent={htmlContent}
+        onUpdateAttribute={handleUpdateAttribute}
+        onUpdateText={handleUpdateText}
+        onUpdateStyle={handleUpdateStyle}
+        onUpdateWhatsAppGlobal={handleUpdateWhatsAppGlobal}
+        onReplaceColorGlobal={(oldColor, newColor) => {
+          postToIframe({ type: 'BIO_REPLACE_COLOR_GLOBAL', oldColor, newColor });
+        }}
+        onSelectElementInPreview={(bioId) => {
+          postToIframe({ type: 'BIO_SCROLL_TO_ELEMENT', bioId });
         }}
       />
 

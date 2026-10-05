@@ -141,6 +141,89 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
       /whatsapp/i.test(el.textContent || '')
     );
 
+    // Smart Image & Background Image Detection
+    let isImage = tagName === 'img';
+    let hasBackgroundImage = false;
+    let backgroundImageSrc = '';
+
+    const bg = computed.backgroundImage;
+    if (bg && bg !== 'none' && bg.includes('url(')) {
+      const match = bg.match(/url\(["']?([^"']+)["']?\)/);
+      if (match && match[1]) {
+        hasBackgroundImage = true;
+        backgroundImageSrc = match[1];
+        if (!isImage) {
+          isImage = true;
+        }
+      }
+    }
+
+    // Smart Carousel Detection
+    function detectCarousel(targetEl) {
+      const carouselContainer = targetEl.closest(
+        '.carousel, .swiper, .slider, .splide, .glide, .slick, [data-carousel], .carousel-inner, .slides, .gallery, [class*="carousel"], [class*="slider"], [class*="swiper"], [class*="gallery"]'
+      );
+      if (!carouselContainer) return null;
+
+      const slideElements = Array.from(carouselContainer.querySelectorAll(
+        'img, [style*="background-image"], .carousel-item, .swiper-slide, .slide'
+      ));
+
+      const slides = [];
+      const seenIds = new Set();
+
+      slideElements.forEach((s) => {
+        let src = '';
+        let isBg = false;
+        let targetNode = s;
+
+        if (s.tagName.toLowerCase() === 'img') {
+          src = s.getAttribute('src') || '';
+        } else {
+          const inner = s.querySelector('img');
+          if (inner) {
+            targetNode = inner;
+            src = inner.getAttribute('src') || '';
+          } else {
+            const elBg = window.getComputedStyle(s).backgroundImage;
+            if (elBg && elBg !== 'none' && elBg.includes('url(')) {
+              const m = elBg.match(/url\(["']?([^"']+)["']?\)/);
+              if (m && m[1]) {
+                src = m[1];
+                isBg = true;
+              }
+            }
+          }
+        }
+
+        const slideBioId = targetNode.getAttribute('data-bio-id');
+        if (src && slideBioId && !seenIds.has(slideBioId)) {
+          seenIds.add(slideBioId);
+          slides.push({
+            bioId: slideBioId,
+            src: src,
+            alt: targetNode.getAttribute('alt') || ('Foto ' + (slides.length + 1)),
+            isBackground: isBg,
+            active: targetNode === targetEl || targetNode.contains(targetEl) || targetEl.contains(targetNode)
+          });
+        }
+      });
+
+      if (slides.length === 0) return null;
+
+      const activeIdx = slides.findIndex((s) => s.active);
+
+      return {
+        totalSlides: slides.length,
+        currentIndex: activeIdx >= 0 ? activeIdx : 0,
+        carouselBioId: carouselContainer.getAttribute('data-bio-id') || '',
+        slides: slides
+      };
+    }
+
+    const carouselInfo = detectCarousel(el);
+    const isCarousel = !!carouselInfo;
+
     const payload = {
       bioId,
       tagName,
@@ -174,7 +257,11 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
       },
       isLink,
       isButton: tagName === 'button' || el.getAttribute('role') === 'button' || el.classList.contains('btn') || isLink,
-      isImage: tagName === 'img',
+      isImage,
+      hasBackgroundImage,
+      backgroundImageSrc,
+      isCarousel,
+      carouselInfo,
       isWhatsApp,
     };
 
@@ -227,8 +314,21 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
       e.preventDefault();
       e.stopPropagation();
 
-      const target = e.target;
+      let target = e.target;
       if (!target || target === document.documentElement) return;
+
+      // Smart resolution: If clicking a slide, picture or wrapper that has an <img> inside, select the <img>!
+      if (target.tagName.toLowerCase() !== 'img') {
+        const directImg = target.querySelector('img');
+        const isSlideWrapper = target.classList.contains('swiper-slide') || 
+                               target.classList.contains('carousel-item') || 
+                               target.classList.contains('slide') ||
+                               target.tagName.toLowerCase() === 'picture' ||
+                               target.tagName.toLowerCase() === 'figure';
+        if (directImg && (isSlideWrapper || !target.textContent.trim())) {
+          target = directImg;
+        }
+      }
 
       clearOutlines();
       selectedBioId = target.getAttribute('data-bio-id') || (target === document.body ? 'bio-body' : '');
@@ -265,6 +365,17 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
       case 'BIO_SELECT_ELEMENT':
         selectElementById(data.bioId);
         break;
+
+      case 'BIO_SCROLL_TO_ELEMENT': {
+        const el = data.bioId === 'bio-body' ? document.body : document.querySelector('[data-bio-id="' + data.bioId + '"]');
+        if (el) {
+          try {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } catch {}
+          selectElementById(data.bioId);
+        }
+        break;
+      }
 
       case 'BIO_SELECT_BODY':
         selectElementById('bio-body');
@@ -319,6 +430,24 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
           el.removeAttribute(data.attribute);
         } else {
           el.setAttribute(data.attribute, data.value);
+          if (data.attribute === 'src') {
+            el.removeAttribute('srcset');
+          }
+        }
+        notifyHtmlChanged();
+        break;
+      }
+
+      case 'BIO_UPDATE_IMAGE': {
+        const el = data.bioId === 'bio-body' ? document.body : document.querySelector('[data-bio-id="' + data.bioId + '"]');
+        if (!el) return;
+        if (data.isBackground || el.tagName.toLowerCase() !== 'img') {
+          el.style.backgroundImage = 'url("' + data.src + '")';
+          el.style.backgroundSize = 'cover';
+          el.style.backgroundPosition = 'center';
+        } else {
+          el.setAttribute('src', data.src);
+          el.removeAttribute('srcset');
         }
         notifyHtmlChanged();
         break;
