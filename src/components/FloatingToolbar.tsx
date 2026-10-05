@@ -50,11 +50,18 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   // Editable local values
   const [textValue, setTextValue] = useState(element.textNodeContent || element.fullTextContent);
   const [linkValue, setLinkValue] = useState(element.attributes.href || '');
-  const [imageSrc, setImageSrc] = useState(element.attributes.src || element.backgroundImageSrc || '');
+  const [imageSrc, setImageSrc] = useState(
+    element.imageSrc ||
+    element.attributes.src ||
+    element.backgroundImageSrc ||
+    element.carouselInfo?.slides[element.carouselInfo?.currentIndex || 0]?.src ||
+    ''
+  );
   const [imageSaved, setImageSaved] = useState(false);
 
   // Detect type
-  const isImage = element.isImage || element.hasBackgroundImage;
+  const isImage = element.isImage || element.hasBackgroundImage || element.isCarousel || !!imageSrc;
+  const hasText = (textValue || '').trim().length > 0;
   const isBodyOrSection =
     element.tagName === 'body' ||
     element.tagName === 'section' ||
@@ -84,7 +91,12 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   useEffect(() => {
     setTextValue(element.textNodeContent || element.fullTextContent);
     setLinkValue(element.attributes.href || '');
-    const currentImg = element.attributes.src || element.backgroundImageSrc || '';
+    const currentImg =
+      element.imageSrc ||
+      element.attributes.src ||
+      element.backgroundImageSrc ||
+      element.carouselInfo?.slides[element.carouselInfo?.currentIndex || 0]?.src ||
+      '';
     setImageSrc(currentImg);
 
     if (element.attributes.href) {
@@ -145,13 +157,14 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
     if (!finalUrl) return;
 
     setImageSrc(finalUrl);
+    const targetBioId = element.targetImageBioId || element.bioId;
 
-    if (element.hasBackgroundImage || element.tagName !== 'img') {
-      onUpdateStyle(element.bioId, 'backgroundImage', `url("${finalUrl}")`);
-      onUpdateStyle(element.bioId, 'backgroundSize', 'cover');
-      onUpdateStyle(element.bioId, 'backgroundPosition', 'center');
+    if (element.hasBackgroundImage || (element.tagName !== 'img' && !element.targetImageBioId)) {
+      onUpdateStyle(targetBioId, 'backgroundImage', `url("${finalUrl}")`);
+      onUpdateStyle(targetBioId, 'backgroundSize', 'cover');
+      onUpdateStyle(targetBioId, 'backgroundPosition', 'center');
     } else {
-      onUpdateAttribute(element.bioId, 'src', finalUrl);
+      onUpdateAttribute(targetBioId, 'src', finalUrl);
     }
 
     setImageSaved(true);
@@ -221,14 +234,16 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#EFFF00] shadow-[0_0_8px_#EFFF00]"></span>
           <span className="font-bold text-xs uppercase tracking-wider text-[#EFFF00]">
-            {isBodyOrSection
-              ? 'Fundo / Área'
+            {element.isCarousel
+              ? 'Foto do Carrossel'
               : isImage
-              ? 'Imagem / Logo'
+              ? 'Imagem / Foto'
               : isWhatsApp
               ? 'WhatsApp'
               : isLinkOrButton
               ? 'Botão / Link'
+              : isBodyOrSection
+              ? 'Fundo / Área'
               : 'Texto'}
           </span>
         </div>
@@ -258,62 +273,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 
       {/* Body of Floating Box - Only Context-Relevant Controls */}
       <div className="py-3 space-y-3.5 text-xs">
-        {/* 1. TEXT CONTROLS */}
-        {!isImage && !isBodyOrSection && (
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold text-neutral-300">
-              Texto
-            </label>
-            <textarea
-              rows={2}
-              value={textValue}
-              onChange={(e) => setTextValue(e.target.value)}
-              onBlur={() => onUpdateText(element.bioId, textValue)}
-              placeholder="Digite o novo texto..."
-              className="w-full bg-[#080808] border border-neutral-800 rounded-xl p-2.5 text-neutral-100 text-xs focus:outline-none focus:border-[#EFFF00] transition-colors resize-none"
-            />
-
-            {/* Quick text color and size */}
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-neutral-400">Cor:</span>
-                <input
-                  type="color"
-                  defaultValue={element.styles.color.startsWith('#') ? element.styles.color : '#ffffff'}
-                  onChange={(e) => onUpdateStyle(element.bioId, 'color', e.target.value)}
-                  className="w-6 h-6 rounded border border-neutral-700 bg-transparent cursor-pointer p-0.5"
-                />
-              </div>
-
-              {/* Font size presets */}
-              <div className="flex items-center gap-1 bg-[#080808] p-0.5 rounded-lg border border-neutral-800">
-                <button
-                  type="button"
-                  onClick={() => onUpdateStyle(element.bioId, 'fontSize', '13px')}
-                  className="px-2 py-0.5 text-[10px] text-neutral-400 hover:text-white rounded"
-                >
-                  P
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onUpdateStyle(element.bioId, 'fontSize', '16px')}
-                  className="px-2 py-0.5 text-[10px] text-neutral-400 hover:text-white rounded"
-                >
-                  M
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onUpdateStyle(element.bioId, 'fontSize', '22px')}
-                  className="px-2 py-0.5 text-[10px] text-neutral-400 hover:text-white rounded font-bold"
-                >
-                  G
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 2. IMAGE OR LOGO CONTROLS */}
+        {/* 1. IMAGE OR CAROUSEL CONTROLS (PRIORITIZED) */}
         {isImage && (
           <div className="space-y-3.5">
             {/* Carousel Slide Switcher */}
@@ -329,12 +289,13 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 
                 <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
                   {element.carouselInfo.slides.map((slide, idx) => {
-                    const isCurrent = slide.active || slide.bioId === element.bioId;
+                    const isCurrent = slide.active || slide.bioId === element.bioId || slide.src === imageSrc;
                     return (
                       <button
                         key={slide.bioId || idx}
                         type="button"
                         onClick={() => {
+                          setImageSrc(slide.src);
                           if (onSelectElement && slide.bioId) {
                             onSelectElement(slide.bioId);
                           }
@@ -437,6 +398,61 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                   className="flex-1 py-1 bg-[#080808] hover:bg-neutral-800 border border-neutral-800 rounded-lg text-center text-[11px] text-neutral-300 hover:text-white"
                 >
                   Redondo
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2. TEXT CONTROLS (Only if text actually exists) */}
+        {hasText && !isBodyOrSection && (
+          <div className="space-y-2 pt-2 border-t border-neutral-800/80">
+            <label className="block text-[11px] font-semibold text-neutral-300">
+              Texto
+            </label>
+            <textarea
+              rows={2}
+              value={textValue}
+              onChange={(e) => setTextValue(e.target.value)}
+              onBlur={() => onUpdateText(element.bioId, textValue)}
+              placeholder="Digite o novo texto..."
+              className="w-full bg-[#080808] border border-neutral-800 rounded-xl p-2.5 text-neutral-100 text-xs focus:outline-none focus:border-[#EFFF00] transition-colors resize-none"
+            />
+
+            {/* Quick text color and size */}
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-neutral-400">Cor:</span>
+                <input
+                  type="color"
+                  defaultValue={element.styles.color.startsWith('#') ? element.styles.color : '#ffffff'}
+                  onChange={(e) => onUpdateStyle(element.bioId, 'color', e.target.value)}
+                  className="w-6 h-6 rounded border border-neutral-700 bg-transparent cursor-pointer p-0.5"
+                />
+              </div>
+
+              {/* Font size presets */}
+              <div className="flex items-center gap-1 bg-[#080808] p-0.5 rounded-lg border border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => onUpdateStyle(element.bioId, 'fontSize', '13px')}
+                  className="px-2 py-0.5 text-[10px] text-neutral-400 hover:text-white rounded"
+                >
+                  P
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdateStyle(element.bioId, 'fontSize', '16px')}
+                  className="px-2 py-0.5 text-[10px] text-neutral-400 hover:text-white rounded"
+                >
+                  M
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdateStyle(element.bioId, 'fontSize', '22px')}
+                  className="px-2 py-0.5 text-[10px] text-neutral-400 hover:text-white rounded font-bold"
+                >
+                  G
                 </button>
               </div>
             </div>

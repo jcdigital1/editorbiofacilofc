@@ -127,6 +127,8 @@ export interface SelectedElementProperties {
   isLink: boolean;
   isButton: boolean;
   isImage: boolean;
+  imageSrc?: string;
+  targetImageBioId?: string;
   hasBackgroundImage?: boolean;
   backgroundImageSrc?: string;
   isCarousel?: boolean;

@@ -63,28 +63,41 @@ export const BiositeElementsDrawer: React.FC<BiositeElementsDrawerProps> = ({
 
   // Find all <img> tags
   doc.querySelectorAll('img').forEach((img, idx) => {
-    const src = img.getAttribute('src') || '';
+    const src =
+      img.getAttribute('src') ||
+      img.getAttribute('data-src') ||
+      img.getAttribute('data-lazy') ||
+      img.getAttribute('data-original') ||
+      '';
     if (!src) return;
     const bioId = img.getAttribute('data-bio-id') || `img-${idx}`;
     const alt = img.getAttribute('alt') || '';
     const parent = img.parentElement;
     const parentClass = (parent?.className || '').toString().toLowerCase();
+    const imgClass = (img.className || '').toString().toLowerCase();
     const isCarousel =
       parentClass.includes('slide') ||
       parentClass.includes('swiper') ||
       parentClass.includes('carousel') ||
-      img.className.toLowerCase().includes('carousel') ||
-      img.className.toLowerCase().includes('slide') ||
-      !!img.closest('.carousel, .swiper, .slider, [data-carousel]');
+      parentClass.includes('carrossel') ||
+      parentClass.includes('galeria') ||
+      parentClass.includes('vitrine') ||
+      parentClass.includes('loja') ||
+      imgClass.includes('carousel') ||
+      imgClass.includes('carrossel') ||
+      imgClass.includes('slide') ||
+      !!img.closest(
+        '.carousel, .carrossel, .swiper, .slider, [data-carousel], [data-carrossel], .galeria, .vitrine'
+      );
 
     let label = `Foto ${allImagesList.length + 1}`;
     if (isCarousel) {
       label = `Carrossel (Foto ${allImagesList.length + 1})`;
     } else if (alt) {
       label = alt.length > 25 ? alt.substring(0, 25) + '...' : alt;
-    } else if (img.className.toLowerCase().includes('logo') || parentClass.includes('logo')) {
+    } else if (imgClass.includes('logo') || parentClass.includes('logo')) {
       label = 'Logotipo';
-    } else if (img.className.toLowerCase().includes('avatar') || img.className.toLowerCase().includes('profile')) {
+    } else if (imgClass.includes('avatar') || imgClass.includes('profile')) {
       label = 'Foto de Perfil';
     }
 
@@ -106,18 +119,48 @@ export const BiositeElementsDrawer: React.FC<BiositeElementsDrawerProps> = ({
     if (match && match[1]) {
       const bioId = el.getAttribute('data-bio-id') || `bg-${idx}`;
       const src = match[1];
-      const isCarousel = el.className.toLowerCase().includes('slide') || el.className.toLowerCase().includes('carousel');
+      const elClass = (el.className || '').toString().toLowerCase();
+      const isCarousel =
+        elClass.includes('slide') ||
+        elClass.includes('carousel') ||
+        elClass.includes('carrossel') ||
+        elClass.includes('swiper') ||
+        elClass.includes('galeria') ||
+        elClass.includes('vitrine') ||
+        elClass.includes('loja') ||
+        !!el.closest(
+          '.carousel, .carrossel, .swiper, .slider, [data-carousel], [data-carrossel], .galeria, .vitrine'
+        );
+
       allImagesList.push({
         bioId,
         src,
         alt: 'Imagem de Fundo',
-        label: isCarousel ? `Carrossel Fundo ${idx + 1}` : `Fundo / Seção ${idx + 1}`,
+        label: isCarousel ? `Carrossel (Foto ${allImagesList.length + 1})` : `Fundo / Seção ${idx + 1}`,
         isCarousel,
         isBackground: true,
         elementTag: el.tagName.toLowerCase(),
       });
     }
   });
+
+  // Check if detected carousel from CONFIG / script has additional images
+  if (detected.carousel && detected.carousel.images && detected.carousel.images.length > 0) {
+    detected.carousel.images.forEach((cfgSrc, cIdx) => {
+      const alreadyIncluded = allImagesList.some((item) => item.src === cfgSrc);
+      if (!alreadyIncluded) {
+        allImagesList.push({
+          bioId: `carousel-cfg-${cIdx}`,
+          src: cfgSrc,
+          alt: `Carrossel ${cIdx + 1}`,
+          label: `Carrossel (Foto ${cIdx + 1})`,
+          isCarousel: true,
+          isBackground: false,
+          elementTag: 'img',
+        });
+      }
+    });
+  }
 
   // 2. Extract all WhatsApp links
   const allWhatsAppList: Array<{

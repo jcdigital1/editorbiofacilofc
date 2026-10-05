@@ -241,23 +241,56 @@ export function analyzeHtml(html: string): DetectedSiteData {
     .slice(0, 16);
 
   // 8. Carousel Detection
-  const carouselContainer = doc.querySelector('.carousel, .swiper, .slider, .slideshow, [data-carousel]');
+  const carouselContainer = doc.querySelector(
+    '.carousel, .carrossel, .swiper, .slider, .slideshow, .galeria, .vitrine, .loja-fotos, [data-carousel], [data-carrossel], [class*="carousel"], [class*="carrossel"], [class*="slider"], [class*="swiper"], [class*="galeria"]'
+  );
   let carousel: DetectedSiteData['carousel'] = null;
 
   if (carouselContainer) {
-    const slideImgs = Array.from(carouselContainer.querySelectorAll('img')).map(
-      img => img.getAttribute('src') || ''
-    ).filter(Boolean);
+    const slideUrls: string[] = [];
+
+    // Query <img> tags
+    carouselContainer.querySelectorAll('img').forEach((img) => {
+      const src =
+        img.getAttribute('src') ||
+        img.getAttribute('data-src') ||
+        img.getAttribute('data-lazy') ||
+        img.getAttribute('data-original') ||
+        '';
+      if (src && !slideUrls.includes(src)) {
+        slideUrls.push(src);
+      }
+    });
+
+    // Query background-image slides
+    carouselContainer.querySelectorAll('[style*="background-image"], [style*="url("]').forEach((el) => {
+      const style = el.getAttribute('style') || '';
+      const m = style.match(/url\(["']?([^"']+)["']?\)/);
+      if (m && m[1] && !slideUrls.includes(m[1])) {
+        slideUrls.push(m[1]);
+      }
+    });
 
     carousel = {
       detected: true,
-      slideCount: slideImgs.length,
-      images: slideImgs,
+      slideCount: slideUrls.length,
+      images: slideUrls,
       autoplay: true,
       interval: 4000,
     };
-  } else if (configModel?.data?.fotosCarrossel || configModel?.data?.galeria) {
-    const photos = configModel.data.fotosCarrossel || configModel.data.galeria;
+  } else if (
+    configModel?.data?.fotosCarrossel ||
+    configModel?.data?.carrossel ||
+    configModel?.data?.fotos ||
+    configModel?.data?.galeria ||
+    configModel?.data?.imagens
+  ) {
+    const photos =
+      configModel.data.fotosCarrossel ||
+      configModel.data.carrossel ||
+      configModel.data.fotos ||
+      configModel.data.galeria ||
+      configModel.data.imagens;
     if (Array.isArray(photos)) {
       carousel = {
         detected: true,

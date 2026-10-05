@@ -141,71 +141,151 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
       /whatsapp/i.test(el.textContent || '')
     );
 
-    // Smart Image & Background Image Detection
-    let isImage = tagName === 'img';
-    let hasBackgroundImage = false;
-    let backgroundImageSrc = '';
+    // Comprehensive Image and Background Image Finder
+    function findImageInOrAround(targetEl) {
+      if (!targetEl || targetEl === document.documentElement || targetEl === document.body) return null;
 
-    const bg = computed.backgroundImage;
-    if (bg && bg !== 'none' && bg.includes('url(')) {
-      const match = bg.match(/url\(["']?([^"']+)["']?\)/);
-      if (match && match[1]) {
-        hasBackgroundImage = true;
-        backgroundImageSrc = match[1];
-        if (!isImage) {
-          isImage = true;
+      // 1. Is targetEl itself an <img>?
+      if (targetEl.tagName.toLowerCase() === 'img') {
+        const src = targetEl.getAttribute('src') || targetEl.getAttribute('data-src') || targetEl.src || '';
+        return {
+          node: targetEl,
+          bioId: targetEl.getAttribute('data-bio-id') || '',
+          src: src,
+          isBackground: false
+        };
+      }
+
+      // 2. Does targetEl have a background-image directly (inline or computed)?
+      const targetBg = window.getComputedStyle(targetEl).backgroundImage;
+      if (targetBg && targetBg !== 'none' && targetBg.includes('url(')) {
+        const m = targetBg.match(/url\(["']?([^"']+)["']?\)/);
+        if (m && m[1]) {
+          return {
+            node: targetEl,
+            bioId: targetEl.getAttribute('data-bio-id') || '',
+            src: m[1],
+            isBackground: true
+          };
         }
       }
+
+      // 3. Does targetEl contain an <img> anywhere inside?
+      const innerImg = targetEl.querySelector('img');
+      if (innerImg) {
+        const src = innerImg.getAttribute('src') || innerImg.getAttribute('data-src') || innerImg.src || '';
+        return {
+          node: innerImg,
+          bioId: innerImg.getAttribute('data-bio-id') || targetEl.getAttribute('data-bio-id') || '',
+          src: src,
+          isBackground: false
+        };
+      }
+
+      // 4. Does targetEl contain an element with background-image?
+      const innerBgEl = targetEl.querySelector('[style*="background-image"], [style*="url("]');
+      if (innerBgEl) {
+        const innerBg = window.getComputedStyle(innerBgEl).backgroundImage;
+        if (innerBg && innerBg !== 'none' && innerBg.includes('url(')) {
+          const m = innerBg.match(/url\(["']?([^"']+)["']?\)/);
+          if (m && m[1]) {
+            return {
+              node: innerBgEl,
+              bioId: innerBgEl.getAttribute('data-bio-id') || targetEl.getAttribute('data-bio-id') || '',
+              src: m[1],
+              isBackground: true
+            };
+          }
+        }
+      }
+
+      // 5. Check direct children for background-image
+      for (let i = 0; i < targetEl.children.length; i++) {
+        const ch = targetEl.children[i];
+        const chBg = window.getComputedStyle(ch).backgroundImage;
+        if (chBg && chBg !== 'none' && chBg.includes('url(')) {
+          const m = chBg.match(/url\(["']?([^"']+)["']?\)/);
+          if (m && m[1]) {
+            return {
+              node: ch,
+              bioId: ch.getAttribute('data-bio-id') || targetEl.getAttribute('data-bio-id') || '',
+              src: m[1],
+              isBackground: true
+            };
+          }
+        }
+      }
+
+      // 6. Check siblings or parent wrapper (e.g. caption or overlay inside slide)
+      const parent = targetEl.parentElement;
+      if (parent && parent !== document.body && parent !== document.documentElement) {
+        const siblingImg = parent.querySelector('img');
+        if (siblingImg) {
+          return {
+            node: siblingImg,
+            bioId: siblingImg.getAttribute('data-bio-id') || parent.getAttribute('data-bio-id') || '',
+            src: siblingImg.getAttribute('src') || siblingImg.getAttribute('data-src') || siblingImg.src || '',
+            isBackground: false
+          };
+        }
+      }
+
+      return null;
     }
 
-    // Smart Carousel Detection
+    // Smart Carousel Detection (Supports Portuguese and English class names and structure)
     function detectCarousel(targetEl) {
-      const carouselContainer = targetEl.closest(
-        '.carousel, .swiper, .slider, .splide, .glide, .slick, [data-carousel], .carousel-inner, .slides, .gallery, [class*="carousel"], [class*="slider"], [class*="swiper"], [class*="gallery"]'
-      );
+      const carouselSelector = [
+        '.carousel', '.carrossel', '.swiper', '.slider', '.splide', '.glide', '.slick',
+        '.carousel-inner', '.carrossel-inner', '.carousel-track', '.carrossel-track',
+        '.carousel-container', '.carrossel-container', '.carousel-wrapper', '.carrossel-wrapper',
+        '.slides', '.slideshow', '.gallery', '.galeria', '.vitrine', '.loja-fotos',
+        '[class*="carousel"]', '[class*="carrossel"]', '[class*="slider"]', '[class*="swiper"]',
+        '[class*="slide"]', '[class*="gallery"]', '[class*="galeria"]', '[class*="vitrine"]',
+        '[data-carousel]', '[data-carrossel]', '[data-slider]', '[data-swiper]'
+      ].join(', ');
+
+      let carouselContainer = targetEl.closest(carouselSelector);
+
+      // Fallback: If not matched by class, check if any parent has multiple children with images (horizontal scroll/flex)
+      if (!carouselContainer) {
+        let p = targetEl.parentElement;
+        while (p && p !== document.body) {
+          const imgsInParent = p.querySelectorAll('img, [style*="background-image"]');
+          if (imgsInParent.length >= 2) {
+            carouselContainer = p;
+            break;
+          }
+          p = p.parentElement;
+        }
+      }
+
       if (!carouselContainer) return null;
 
-      const slideElements = Array.from(carouselContainer.querySelectorAll(
-        'img, [style*="background-image"], .carousel-item, .swiper-slide, .slide'
+      // Extract all slides / images in this carousel
+      const candidateElements = Array.from(carouselContainer.querySelectorAll(
+        'img, [style*="background-image"], .carousel-item, .carrossel-item, .swiper-slide, .slide, [class*="slide"], [class*="item"]'
       ));
 
       const slides = [];
-      const seenIds = new Set();
+      const seenBioIds = new Set();
+      const seenSrcs = new Set();
 
-      slideElements.forEach((s) => {
-        let src = '';
-        let isBg = false;
-        let targetNode = s;
-
-        if (s.tagName.toLowerCase() === 'img') {
-          src = s.getAttribute('src') || '';
-        } else {
-          const inner = s.querySelector('img');
-          if (inner) {
-            targetNode = inner;
-            src = inner.getAttribute('src') || '';
-          } else {
-            const elBg = window.getComputedStyle(s).backgroundImage;
-            if (elBg && elBg !== 'none' && elBg.includes('url(')) {
-              const m = elBg.match(/url\(["']?([^"']+)["']?\)/);
-              if (m && m[1]) {
-                src = m[1];
-                isBg = true;
-              }
-            }
+      candidateElements.forEach((candidate) => {
+        const found = findImageInOrAround(candidate);
+        if (found && found.src && !seenSrcs.has(found.src)) {
+          seenSrcs.add(found.src);
+          const id = found.bioId || candidate.getAttribute('data-bio-id') || ('slide-' + slides.length);
+          if (!seenBioIds.has(id)) {
+            seenBioIds.add(id);
+            slides.push({
+              bioId: id,
+              src: found.src,
+              alt: found.node.getAttribute('alt') || ('Foto ' + (slides.length + 1)),
+              isBackground: found.isBackground,
+              active: candidate === targetEl || candidate.contains(targetEl) || targetEl.contains(candidate)
+            });
           }
-        }
-
-        const slideBioId = targetNode.getAttribute('data-bio-id');
-        if (src && slideBioId && !seenIds.has(slideBioId)) {
-          seenIds.add(slideBioId);
-          slides.push({
-            bioId: slideBioId,
-            src: src,
-            alt: targetNode.getAttribute('alt') || ('Foto ' + (slides.length + 1)),
-            isBackground: isBg,
-            active: targetNode === targetEl || targetNode.contains(targetEl) || targetEl.contains(targetNode)
-          });
         }
       });
 
@@ -224,6 +304,22 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
     const carouselInfo = detectCarousel(el);
     const isCarousel = !!carouselInfo;
 
+    const detectedImg = findImageInOrAround(el);
+    let isImage = !!detectedImg || isCarousel;
+    let imageSrc = detectedImg ? detectedImg.src : '';
+    let targetImageBioId = detectedImg ? detectedImg.bioId : '';
+    let hasBackgroundImage = detectedImg ? detectedImg.isBackground : false;
+    let backgroundImageSrc = hasBackgroundImage && detectedImg ? detectedImg.src : '';
+
+    if (isCarousel && !imageSrc && carouselInfo.slides.length > 0) {
+      const curSlide = carouselInfo.slides[carouselInfo.currentIndex] || carouselInfo.slides[0];
+      imageSrc = curSlide.src;
+      targetImageBioId = curSlide.bioId;
+      hasBackgroundImage = curSlide.isBackground || false;
+      backgroundImageSrc = hasBackgroundImage ? curSlide.src : '';
+      isImage = true;
+    }
+
     const payload = {
       bioId,
       tagName,
@@ -231,7 +327,10 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
       fullTextContent: (el.textContent || '').trim(),
       hasChildElements: textInfo.hasChildElements,
       childTags: textInfo.childTags,
-      attributes: attrs,
+      attributes: {
+        ...attrs,
+        src: imageSrc || attrs.src || ''
+      },
       styles: {
         color: computed.color,
         backgroundColor: computed.backgroundColor,
@@ -258,6 +357,8 @@ export function generatePreviewInjectionScript(mode: 'edit' | 'test'): string {
       isLink,
       isButton: tagName === 'button' || el.getAttribute('role') === 'button' || el.classList.contains('btn') || isLink,
       isImage,
+      imageSrc,
+      targetImageBioId: targetImageBioId || bioId,
       hasBackgroundImage,
       backgroundImageSrc,
       isCarousel,
